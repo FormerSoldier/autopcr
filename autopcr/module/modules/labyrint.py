@@ -55,7 +55,7 @@ class LabyrinthBossConfig(MultiChoiceConfig):
 @LabyrinthBossConfig('labyrinth_reroll_area5_boss', '区域5Boss', LABYRINTH_AREA5_BOSSES)
 @LabyrinthBossConfig('labyrinth_reroll_area3_boss', '区域3Boss', LABYRINTH_AREA3_BOSSES)
 @singlechoice('labyrinth_reroll_third_block_type', '区域3/5第3格', '两者都行', ['必须遗物', '必须事件', '两者都行'])
-@booltype('labyrinth_reroll_perfect_start', '完美开局', False)
+@singlechoice('labyrinth_reroll_perfect_start', '路线', '性价比', ['完美', '性价比'])
 @LabyrinthGuildConfig('labyrinth_reroll_guild_id', '公会', 5)
 @singlechoice('labyrinth_reroll_difficulty', '难度', 5, [1, 2, 3, 4, 5])
 class labyrinth_start_reroll(Module):
@@ -128,7 +128,26 @@ class labyrinth_start_reroll(Module):
             return {6}
         return {self.AREA_REQUIREMENTS[area][column]}
 
-    def _find_area_route(self, area: int, map_list: List, area3_bosses: Set[int], area5_bosses: Set[int], third_block_type: str, perfect_start: bool) -> Tuple[Optional[List], str]:
+    def _validate_cost_effective(self, area: int, route: List, difficulty: int) -> Tuple[bool, str]:
+        """性价比模式额外校验（仅难度4/5生效）：
+        区域4需含双hard(EX怪物)；区域2需遗物后紧跟hard(EX怪物)。"""
+        if difficulty not in (4, 5):
+            return True, ""
+        if area == 4:
+            hard_count = sum(1 for b in route if self._block_type(b) == 3)
+            if hard_count < 2:
+                return False, f"区域4仅{hard_count}个hard(EX)，需双hard"
+        if area == 2:
+            types = [self._block_type(b) for b in route]
+            ok = any(
+                types[i] == 6 and i + 1 < len(types) and types[i + 1] == 3
+                for i in range(len(types))
+            )
+            if not ok:
+                return False, "区域2遗物后未跟hard(EX)"
+        return True, ""
+
+    def _find_area_route(self, area: int, map_list: List, area3_bosses: Set[int], area5_bosses: Set[int], third_block_type: str, perfect_start: bool, start_mode: str, difficulty: int) -> Tuple[Optional[List], str]:
         expected = self.AREA_REQUIREMENTS[area]
         blocks = [block for block in map_list if block.area == area]
         if not blocks:
@@ -156,7 +175,12 @@ class labyrinth_start_reroll(Module):
             if column == last_column:
                 if expected[column] == 8 and not self._boss_matches(area, block, area3_bosses, area5_bosses):
                     return None
-                return path + [block]
+                full_route = path + [block]
+                if start_mode == '性价比':
+                    ok, _ = self._validate_cost_effective(area, full_route, difficulty)
+                    if not ok:
+                        return None
+                return full_route
 
             for next_block_id in block.next_block_id_list or []:
                 if next_block_id in seen:
@@ -176,11 +200,11 @@ class labyrinth_start_reroll(Module):
 
         return None, f"区域{area}没有满足条件的可达路线"
 
-    def _find_routes(self, map_list: List, difficulty: int, area3_bosses: Set[int], area5_bosses: Set[int], third_block_type: str, perfect_start: bool) -> Tuple[Optional[Dict[int, List]], str]:
+    def _find_routes(self, map_list: List, difficulty: int, area3_bosses: Set[int], area5_bosses: Set[int], third_block_type: str, perfect_start: bool, start_mode: str) -> Tuple[Optional[Dict[int, List]], str]:
         routes: Dict[int, List] = {}
         failures = []
         for area in self._target_areas(difficulty):
-            route, reason = self._find_area_route(area, map_list, area3_bosses, area5_bosses, third_block_type, perfect_start)
+            route, reason = self._find_area_route(area, map_list, area3_bosses, area5_bosses, third_block_type, perfect_start, start_mode, difficulty)
             if not route:
                 failures.append(reason)
             else:
@@ -221,7 +245,9 @@ class labyrinth_start_reroll(Module):
         area3_bosses: Set[int] = set(self.get_config('labyrinth_reroll_area3_boss'))
         area5_bosses: Set[int] = set(self.get_config('labyrinth_reroll_area5_boss'))
         third_block_type: str = self.get_config('labyrinth_reroll_third_block_type')
-        perfect_start: bool = self.get_config('labyrinth_reroll_perfect_start')
+        # 开局模式：'完美'启用严格校验；'性价比'为待开发功能，当前暂按非完美逻辑占位
+        start_mode: str = self.get_config('labyrinth_reroll_perfect_start')
+        perfect_start: bool = (start_mode == '完美')
         max_count: int = 100
 
         top = await client.labyrinth_top()
@@ -237,9 +263,9 @@ class labyrinth_start_reroll(Module):
         last_reason = ""
         for attempt in range(1, max_count + 1):
             enter = await client.labyrinth_enter(guild_id, difficulty)
-            routes, reason = self._find_routes(enter.map_list or [], difficulty, area3_bosses, area5_bosses, third_block_type, perfect_start)
+            routes, reason = self._find_routes(enter.map_list or [], difficulty, area3_bosses, area5_bosses, third_block_type, perfect_start, start_mode)
             if routes:
-                self._log(f"刷到{'完美' if perfect_start else ''}路线，总尝试次数：{attempt}")
+                self._log(f"刷到{start_mode}路线，总尝试次数：{attempt}")
                 for area in sorted(routes):
                     self._log(self._format_route(area, routes[area], enter.map_list or [], area3_bosses, area5_bosses))
                 return
