@@ -56,6 +56,7 @@ class LabyrinthBossConfig(MultiChoiceConfig):
 @LabyrinthBossConfig('labyrinth_reroll_area3_boss', '区域3Boss', LABYRINTH_AREA3_BOSSES)
 @singlechoice('labyrinth_reroll_third_block_type', '区域3/5第3格', '两者都行', ['必须遗物', '必须事件', '两者都行'])
 @singlechoice('labyrinth_reroll_perfect_start', '路线', '性价比', ['完美', '性价比'])
+@singlechoice('labyrinth_reroll_max_count', '最多重开次数（完美开局）', 100, [100, 200, 300])
 @LabyrinthGuildConfig('labyrinth_reroll_guild_id', '公会', 5)
 @singlechoice('labyrinth_reroll_difficulty', '难度', 5, [1, 2, 3, 4, 5])
 class labyrinth_start_reroll(Module):
@@ -247,8 +248,8 @@ class labyrinth_start_reroll(Module):
         third_block_type: str = self.get_config('labyrinth_reroll_third_block_type')
         # 开局模式：'完美'启用严格校验；'性价比'为待开发功能，当前暂按非完美逻辑占位
         start_mode: str = self.get_config('labyrinth_reroll_perfect_start')
+        max_count: int = self.get_config('labyrinth_reroll_max_count') if perfect_start else 100
         perfect_start: bool = (start_mode == '完美')
-        max_count: int = 100
 
         top = await client.labyrinth_top()
         max_unlocked_difficulty = self._max_unlocked_difficulty(top)
