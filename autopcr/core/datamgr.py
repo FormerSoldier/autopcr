@@ -622,7 +622,7 @@ class datamgr(BaseModel, Component[apiclient]):
         return all(value == 0 for key, value in vars(self.deck_list[party_type]).items() if key.startswith('unit_id'))
 
     def is_mission_finished(self, system_id: int):
-        return len(list(
+        return len(List(
             flow(self.missions)
             .where(lambda x: 
                    db.is_daily_mission(x.mission_id) and

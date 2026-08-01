@@ -57,7 +57,7 @@ COPY . .
 # 预下载或执行可能会生成大的临时文件的步骤
 RUN python3 _download_web.py || (echo "Failed to download web file" && exit 1)
 
-EXPOSE 13200
+EXPOSE 80
 
 VOLUME ["/app/result", "/app/cache", "/app/log"]
 

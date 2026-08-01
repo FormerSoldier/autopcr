@@ -278,8 +278,8 @@ class labyrinth_start_reroll(Module):
         # 开局模式：'完美'启用严格校验；'性价比'启用额外分数校验
         second_block_type: str = self.get_config('labyrinth_reroll_second_block_type')
         start_mode: str = self.get_config('labyrinth_reroll_perfect_start')
-        max_count: int = self.get_config('labyrinth_reroll_max_count')
         perfect_start: bool = (start_mode == '完美')
+        max_count: int = self.get_config('labyrinth_reroll_max_count') if perfect_start else 100
         expected_block_types = self._build_expected_block_types(third_block_type, second_block_type)
 
         top = await client.labyrinth_top()

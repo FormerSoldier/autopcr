@@ -6,7 +6,7 @@ except ImportError:
 import uuid
 import logging
 
-SERVER_PORT = int(os.getenv("AUTOPCR_SERVER_PORT", "13200"))
+SERVER_PORT = int(os.getenv("AUTOPCR_SERVER_PORT", "80"))
 SERVER_HOST = os.getenv("AUTOPCR_SERVER_HOST", "0.0.0.0")
 
 CLIENT_POOL_SIZE_MAX = 100
